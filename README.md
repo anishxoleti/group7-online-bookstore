@@ -3,7 +3,7 @@
 REST API backend for a fictitious online bookstore, built with **Express.js (Node.js)** and **MySQL** for CEN 4010 Software Engineering I.
 
 All six features run as **one web service** with **one shared database**. Each team member owns one feature end to end: its tables, its dummy data, its routes and its final demo.
-
+ 
 ---
 
 ## Contents
@@ -19,7 +19,6 @@ All six features run as **one web service** with **one shared database**. Each t
 9. [Testing with Postman](#9-testing-with-postman)
 10. [Sprint timeline](#10-sprint-timeline)
 11. [Troubleshooting](#11-troubleshooting)
-
 ---
 
 ## 1. Team and feature ownership
@@ -29,16 +28,17 @@ All six features run as **one web service** with **one shared database**. Each t
 | Book Browsing and Sorting | Anish Oleti | `routes/bookBrowsing.js` | `publisher` |
 | Book Details | Alfonso Oramas Jr | `routes/bookDetails.js` | `book`, `author` |
 | Profile Management | Tobias Ordonez | `routes/profile.js` | `user`, `credit_card` |
-| Shopping Cart | Edip Nedim Ozbek | `routes/cart.js` | `cart_item` |
+| Shopping Cart | Edip Nedim Ozbek | `routes/cart.js` | `cart`, `cart_item` |
 | Book Rating and Commenting | Humberto Padron | `routes/ratings.js` | `rating`, `comment` |
-| Wish List Management | Rodolfo Paez Piedrahita | `routes/wishlists.js` | `wishlist`, `wishlist_book` |
+| Wish List Management | Rodolfo Paez Piedrahita | `routes/wishlists.js` | `wishlist`, `wishlist_item` |
+
+"Tables owned" means you're the one who changes those tables if your routes need it. Every table already exists with dummy data in `db/schema.sql`.
 
 ### How grading works
 
 - Each feature has **4 HTTP routes** from the Feature Checklist. Each route is worth **10 points** (40 per feature).
 - After Sprint 5, **each person records their own demo** (max 6 minutes) in Postman showing their routes work. It's submitted individually.
 - The tables and dummy data you build are what your routes use. No tables means nothing to demo.
-
 ### Suggested endpoints
 
 Everything lives under one base URI, `/api`, organized by entity, per the REST API Expectations doc. Owners can rename their paths, but **update this table first** so nobody collides.
@@ -47,7 +47,7 @@ Everything lives under one base URI, `/api`, organized by entity, per the REST A
 |---|---|---|---|---|
 | **Book Browsing** | GET | `/api/books/genre/:genre` | genre | JSON list of books |
 | | GET | `/api/books/top-sellers` | none | Top 10 books by copies sold |
-| | GET | `/api/books/rating/:rating` | rating | Books with rating ≥ value |
+| | GET | `/api/books/rating/:rating` | rating | Books with average rating ≥ value |
 | | PATCH | `/api/books/discount` | body: `publisher`, `discountPercent` | none |
 | **Book Details** | POST | `/api/books` | body: book object | none |
 | | GET | `/api/books/:isbn` | ISBN | Book JSON |
@@ -73,8 +73,8 @@ Everything lives under one base URI, `/api`, organized by entity, per the REST A
 **Notes from the Feature Checklist:**
 - Profile: a user can update any field **except email**.
 - Wish List: the checklist says remove a book from the wishlist "into the user's shopping cart". The owner decides whether DELETE also adds the book to the cart. Coordinate with the Shopping Cart owner.
-- Rating and comment rows need a **datestamp**.
-
+- Rating and comment rows need a **datestamp** (`created_at` fills in automatically).
+- There is **no rating column on `book`**. A book's rating is the average of its rows in `rating`, so Book Browsing's rating filter uses `AVG(rating_value)` with a join.
 ---
 
 ## 2. Install these first
@@ -93,7 +93,6 @@ Everything lives under one base URI, `/api`, organized by entity, per the REST A
 - **Write down the root password** you set during install. You need it for your `.env` and there's no way to look it up later.
 - Keep the default port **3306**.
 - Windows: the MySQL Installer can install Server and Workbench together.
-
 ---
 
 ## 3. First-time project setup
@@ -118,7 +117,7 @@ cp .env.example .env        # Mac
 ```
 Open `.env` and put your MySQL root password in `DB_PASSWORD`.
 
-**4. Set up the database.** See [Database setup](#6-database-setup).
+**4. Set up the database.** Run `db/schema.sql` in MySQL Workbench. See [Database setup](#6-database-setup).
 
 **5. Start the server**
 ```
@@ -133,7 +132,7 @@ Server running on port 3000
 **6. Test it.** Open http://localhost:3000/health and you should see `{"status":"ok"}`. Stop the server with **Ctrl+C**.
 
 **7. Create your sprint branch.** See [Git workflow](#8-git-workflow).
-
+ 
 ---
 
 ## 4. Environment variables (.env)
@@ -150,7 +149,6 @@ Server running on port 3000
 - **Never commit `.env`.** It holds your password, and this repo is public. `.gitignore` already blocks it.
 - `.env.example` **is** committed. It's the blank template. If you add a new variable, add it there too (without real values).
 - Restart the server after changing `.env`.
-
 ---
 
 ## 5. Project structure
@@ -161,74 +159,80 @@ group7-online-bookstore/
 ├── db.js               # Shared MySQL connection pool (import this in your routes)
 ├── routes/             # One file per feature (see ownership table)
 ├── db/
-│   ├── schema.sql      # Combined CREATE TABLE + dummy data for ALL features (main)
-│   └── features/       # Each person's own .sql file (optional, on your branch)
+│   └── schema.sql      # All 11 tables + dummy data for every feature (one shared file)
 ├── .env.example        # Template for your local .env
 ├── package.json        # Dependencies + npm start script
 └── package-lock.json   # Exact dependency versions. Don't edit by hand.
 ```
-
+ 
 ---
 
 ## 6. Database setup
 
-Everyone runs their **own local MySQL**, but it's the **same schema** for everyone: one database, all features' tables in it.
+Everyone runs their **own local MySQL**, but it's the **same schema** for everyone: one database (`bookstore`) with all 11 tables. Everything is in one file, `db/schema.sql`, on main.
 
-### Run the combined script
+The design it follows is the [merged schema diagram](https://lucid.app/lucidchart/0c243504-1fdd-4f44-abe8-f540d969ef4f/view). Table and column names in your code must match it exactly.
 
-Once `db/schema.sql` is on main:
+### Run the schema
 
 **MySQL Workbench (easiest)**
 1. Connect to your local instance.
 2. **File → Open SQL Script** and pick `db/schema.sql` from the project folder.
-3. Click the **lightning bolt** to run it.
-
-**Or the command line**
+3. Click the **lightning bolt** (Execute all). Every line in the Output panel should get a green check.
+4. In the **Schemas** panel, click refresh and expand **bookstore → Tables**. You should see 11 tables.
+   **Or the command line**
 ```
 mysql -u root -p
 source db/schema.sql;
 ```
 (Run `mysql` from the project folder. On Windows, if `mysql` isn't recognized, use Workbench.)
 
-`schema.sql` starts with `DROP DATABASE IF EXISTS bookstore;`, so **re-running it resets everything** back to fresh dummy data. Use it whenever your data gets messy.
+`schema.sql` starts with `DROP DATABASE IF EXISTS bookstore;`, so **re-running it resets everything** back to fresh dummy data. Use it whenever your data gets messy, and after pulling a new version of it from main. On the very first run, a warning that `bookstore` doesn't exist is normal.
 
-**Until `schema.sql` exists**, just create the empty database:
-```sql
-CREATE DATABASE bookstore;
+### Tables
+
+| Table | Feature | Key points |
+|---|---|---|
+| `publisher` | Book Browsing | |
+| `author` | Book Details | `publisher_id` → `publisher` |
+| `book` | Book Details | `isbn` is UNIQUE. `author_id` → `author`, `publisher_id` → `publisher` |
+| `user` | Profile Mgmt | `username` is UNIQUE. Stores `password_hash`, never a plain password |
+| `credit_card` | Profile Mgmt | `user_id` → `user`. Stores a test `payment_token` + `last_four`, never a full card number |
+| `cart` | Shopping Cart | `user_id` is UNIQUE (one cart per user) |
+| `cart_item` | Shopping Cart | Key is (`cart_id`, `book_id`). Has `quantity` (default 1) |
+| `rating` | Rating & Commenting | `user_id`, `book_id`, `rating_value` 1–5, `created_at` |
+| `comment` | Rating & Commenting | `user_id`, `book_id`, `comment_text`, `created_at` |
+| `wishlist` | Wish List | `user_id`, `name`. Names are unique per user |
+| `wishlist_item` | Wish List | Key is (`wishlist_id`, `book_id`), `added_at` |
+
+Creation order (a table can only reference tables created before it):
+```
+publisher → author → book → user → credit_card → cart → cart_item → rating → comment → wishlist → wishlist_item
 ```
 
-### Table order (foreign keys need this)
+### Dummy data at a glance
 
-```
-publisher → author → book → user → credit_card → cart_item → rating → comment → wishlist → wishlist_book
-```
-A table can only reference tables created before it.
+All data is fake. IDs start at 1 in the order rows are inserted.
 
-### Naming conventions (match the merged diagram exactly)
+| Table | Rows | Useful for testing |
+|---|---|---|
+| `publisher` | 4 | Northwind Press (ID 1) has 5 books. Use it for the discount route |
+| `author` | 8 | Samuel Okafor (ID 6) has 3 books |
+| `book` | 15 | 6 genres: Fantasy, Science Fiction, Mystery, Romance, Non-Fiction, Horror. Every `copies_sold` is different. ISBNs run `9781000000001` to `9781000000015` |
+| `user` | 6 | `alice_reads`, `bookworm_ben`, `carla_m`, `dev_daniel`, `emma_writes`, `frank_t`. `frank_t` has only the required fields |
+| `credit_card` | 6 | Alice has 2 cards, `frank_t` has none |
+| `cart` / `cart_item` | 5 / 9 | Users 1–5 have carts, user 6 has none. Emma's cart is empty. Look carts up by `user_id` in your code |
+| `rating` | 28 | Books 1–12 have ratings with different averages. Books 13–15 have none |
+| `comment` | 12 | Book 1 has 3 comments |
+| `wishlist` / `wishlist_item` | 6 / 14 | Alice and Daniel have 2 wishlists each. "Summer Reads" is used by 2 different users. No wishlist book is already in that user's cart |
 
-- Table names: lowercase, snake_case, singular (`book`, `cart_item`, `wishlist_book`)
-- Columns: snake_case (`copies_sold`, `year_published`)
-- Primary key: `<table>_id INT AUTO_INCREMENT PRIMARY KEY` (ex: `book_id`)
-- Foreign key: the same name as the column it points to (`book_id` in `cart_item` → `book.book_id`)
-- Money: `DECIMAL(10,2)`
-- Datestamps: `created_at DATETIME DEFAULT CURRENT_TIMESTAMP`
+### Changing tables or data
 
-### Your feature's .sql file
-
-Each person writes **one file** for their own tables, named after the feature (ex: `db/features/shopping_cart.sql`):
-1. `CREATE TABLE` for each of your tables
-2. `INSERT` statements with about 10 rows of dummy data per table
-
-Send it to Alfonso, who combines everyone's files into `db/schema.sql` on main.
-
-### What "dummy data" means
-
-- **Fake** sample rows for testing: made-up names, emails and titles, never real people or info.
-- About 10 rows per table.
-- **Varied enough that your routes return something useful**: books in 3+ genres, different prices and ratings, 2+ publishers, users with different carts and wishlists.
-- IDs must exist in the tables they reference (a `book_id` in `cart_item` must be a real `book.book_id`).
-- Credit cards: **fake test numbers only** (ex: `4111111111111111`), never real cards.
-
+- Need a new column, more rows or a fix? Edit `db/schema.sql` **on your feature branch**, re-run it locally, and merge it through a pull request (Sprint 3+).
+- **Add new rows to the end** of the matching `INSERT`. Don't reorder existing rows, since IDs come from insert order and other tables reference them.
+- Post in the group chat when you change `schema.sql`. After it merges, everyone pulls main and re-runs it.
+- Keep data fake: made-up names, `@example.com` emails, `tok_test_` card tokens.
+- Naming conventions: lowercase snake_case tables and columns, `<table>_id INT AUTO_INCREMENT` primary keys, foreign keys named the same as the column they point to, `DECIMAL(10,2)` for money, `DATETIME DEFAULT CURRENT_TIMESTAMP` for datestamps.
 ---
 
 ## 7. Adding your routes
@@ -240,7 +244,7 @@ Example `routes/bookBrowsing.js`:
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-
+ 
 // GET /api/books/genre/:genre
 router.get('/books/genre/:genre', async (req, res) => {
   try {
@@ -253,7 +257,7 @@ router.get('/books/genre/:genre', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 module.exports = router;
 ```
 
@@ -280,18 +284,16 @@ app.use('/api', require('./routes/wishlists'));
     - JSON body: `req.body.x`
 - Return JSON for anything that returns data.
 - Use the right status codes (from the REST API Expectations doc):
-
-| Situation | Code |
-|---|---|
-| GET success | `200 OK` |
-| POST created | `201 Created` |
-| PUT/PATCH/DELETE success, nothing to return | `204 No Content` (or `200` with a message) |
-| Bad or missing input | `400 Bad Request` |
-| Thing doesn't exist | `404 Not Found` |
-| Server or database error | `500 Internal Server Error` |
+  | Situation | Code |
+  |---|---|
+  | GET success | `200 OK` |
+  | POST created | `201 Created` |
+  | PUT/PATCH/DELETE success, nothing to return | `204 No Content` (or `200` with a message) |
+  | Bad or missing input | `400 Bad Request` |
+  | Thing doesn't exist | `404 Not Found` |
+  | Server or database error | `500 Internal Server Error` |
 
 - Keep the API **stateless**: every request carries everything it needs. Don't store anything between requests in server memory.
-
 ---
 
 ## 8. Git workflow
@@ -306,7 +308,6 @@ feature/<your-feature>-sprint<N>
 Examples:
 - `feature/book-browsing-sprint2`
 - `feature/shopping-cart-sprint3`
-
 ### Start of every sprint
 ```
 git checkout main
@@ -337,17 +338,15 @@ If you get a **merge conflict in `app.js`**, it's usually two people adding thei
 
 ### Rules
 
-- **Don't push straight to main.** Shared setup files (skeleton, `schema.sql`) are the only exception.
+- **Don't push straight to main.** Everything, including changes to `db/schema.sql`, goes through a pull request (from Sprint 3).
 - **Never commit** `.env`, `node_modules/` or `.idea/`. All are already in `.gitignore`. Run `git status` before committing to check.
 - **Pull main before starting new work.**
-
 ### Push authentication
 
 GitHub doesn't accept your account password for `git push`. Use one of these:
 - **GitHub Desktop:** sign in, then use **Push origin**.
 - **IntelliJ:** **Settings → Version Control → GitHub → + → Log In via GitHub**, then **Git → Push**.
 - **Personal access token:** GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic), with the `repo` scope. Paste it as the password when `git push` asks.
-
 ---
 
 ## 9. Testing with Postman
@@ -359,7 +358,6 @@ GitHub doesn't accept your account password for `git push`. Use one of these:
 { "publisher": "Penguin", "discountPercent": 10 }
 ```
 4. Click **Send** and check the status code and response.
-
 ### What the final demo must show (from the Project Sequence doc)
 
 | Request | Must show |
@@ -370,7 +368,7 @@ GitHub doesn't accept your account password for `git push`. Use one of these:
 | PUT/PATCH | The **before and after** data in the database |
 
 For POST, DELETE and PUT/PATCH, show the table in MySQL Workbench before and after the request.
-
+ 
 ---
 
 ## 10. Sprint timeline
@@ -383,7 +381,7 @@ For POST, DELETE and PUT/PATCH, show the table in MySQL Workbench before and aft
 | 4 | Implement the rest of your routes, merge to main. UML diagrams due week 1. **Team video** |
 | 5 | Smoke test all routes, developer documentation, merge to main. GitHub integration due week 1 |
 | After 5 | **Individual** feature demo in Postman (max 6 min) |
-
+ 
 ---
 
 ## 11. Troubleshooting
@@ -394,10 +392,11 @@ For POST, DELETE and PUT/PATCH, show the table in MySQL Workbench before and aft
 | `Cannot find module 'express'` | Run `npm install`. |
 | `EADDRINUSE: address already in use :::3000` | The server is already running in another terminal. Stop it with Ctrl+C, or change `PORT` in `.env`. |
 | `ER_ACCESS_DENIED_ERROR` | Wrong `DB_USER` or `DB_PASSWORD` in `.env`. |
-| `ER_BAD_DB_ERROR: Unknown database 'bookstore'` | Run `db/schema.sql`, or `CREATE DATABASE bookstore;`. |
+| `ER_BAD_DB_ERROR: Unknown database 'bookstore'` | Run `db/schema.sql`. |
 | `ECONNREFUSED 127.0.0.1:3306` | MySQL isn't running. Windows: **Services → MySQL80 → Start**. |
 | `ER_NO_SUCH_TABLE` | Tables don't exist yet. Run `db/schema.sql`. |
 | `ER_NO_REFERENCED_ROW_2` on INSERT | You're referencing an ID that doesn't exist. Insert the parent row first, or fix the ID. |
+| `Duplicate entry` on INSERT | That row already exists (same ISBN, username, cart book, wishlist book or wishlist name). Use different values. |
 | `'mysql' is not recognized` (Windows) | Use MySQL Workbench, or add `C:\Program Files\MySQL\MySQL Server 8.x\bin` to your PATH. |
 | `Authentication failed` on `git push` | See [Push authentication](#push-authentication). |
 | `LF will be replaced by CRLF` | Harmless Windows line-ending notice. Ignore it. |
