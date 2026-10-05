@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # IDE
 .idea/
+
+# Local notebook demos
+/notebook-demo/
