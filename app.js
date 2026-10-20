@@ -4,6 +4,7 @@ const app = express();
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.use('/api', require('./routes/bookDetails'));
 // Feature routes go here, ex: app.use('/books', require('./routes/books'));
 
 const PORT = process.env.PORT || 3000;
