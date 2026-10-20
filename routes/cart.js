@@ -11,7 +11,7 @@ router.get('/:userId', async (req, res) => {
         }
         const cartId = cartRows[0].cart_id;
         const [items] = await db.query(
-            'SELECT ci.cart_item_id, ci.book_id, ci.quantity, b.title, b.price FROM cart_item ci JOIN book b ON ci.book_id = b.book_id WHERE ci.cart_id = ?',
+            'SELECT ci.cart_id, ci.book_id, ci.quantity, b.title, b.price FROM cart_item ci JOIN book b ON ci.book_id = b.book_id WHERE ci.cart_id = ?',
             [cartId]
         );
         res.status(200).json({ cartId, items });
@@ -37,7 +37,7 @@ router.post('/add', async (req, res) => {
         );
         if (existingItem.length > 0) {
             const newQty = existingItem[0].quantity + (quantity || 1);
-            await db.query('UPDATE cart_item SET quantity = ? WHERE cart_item_id = ?', [newQty, existingItem[0].cart_item_id]);
+            await db.query('UPDATE cart_item SET quantity = ? WHERE cart_id = ? AND book_id = ?', [newQty, cartId, bookId]);
         } else {
             await db.query('INSERT INTO cart_item (cart_id, book_id, quantity) VALUES (?, ?, ?)', [cartId, bookId, quantity || 1]);
         }
@@ -47,14 +47,31 @@ router.post('/add', async (req, res) => {
     }
 });
 
-router.delete('/item/:cartItemId', async (req, res) => {
+router.delete('/item/:cartId/:bookId', async (req, res) => {
     try {
-        const cartItemId = req.params.cartItemId;
-        await db.query('DELETE FROM cart_item WHERE cart_item_id = ?', [cartItemId]);
+        const { cartId, bookId } = req.params;
+        await db.query('DELETE FROM cart_item WHERE cart_id = ? AND book_id = ?', [cartId, bookId]);
         res.status(200).json({ message: 'Item removed successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+router.get('/subtotal/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const [result] = await db.query(
+            `SELECT SUM(ci.quantity * b.price) AS subtotal
+             FROM cart_item ci
+             JOIN cart c ON ci.cart_id = c.cart_id
+             JOIN book b ON ci.book_id = b.book_id
+             WHERE c.user_id = ?`,
+            [userId]
+        );
 
+        const subtotal = result[0].subtotal || 0;
+        res.status(200).json({ subtotal: parseFloat(subtotal).toFixed(2) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 module.exports = router;
