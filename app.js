@@ -5,6 +5,7 @@ app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 // Feature routes go here, ex: app.use('/books', require('./routes/books'));
+app.use('/api', require('./routes/bookBrowsing'));
 app.use('/api', require('./routes/bookDetails'));
 app.use('/cart', require('./routes/cart'));
 app.use('/api', require('./routes/wishlists'));
