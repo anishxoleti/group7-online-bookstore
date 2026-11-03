@@ -19,4 +19,17 @@ router.get('/books/genre/:genre', async (req, res) => {
   }
 });
 
+// GET /api/books/top-sellers
+router.get('/books/top-sellers', async (req, res) => {
+  try {
+    const [books] = await db.query(
+      'SELECT * FROM book ORDER BY copies_sold DESC, book_id ASC LIMIT 10'
+    );
+
+    return res.status(200).json(books);
+  } catch (error) {
+    console.error('Failed to retrieve top sellers:', error);
+    return res.status(500).json({ error: 'Unable to retrieve top sellers' });
+  }
+});
 module.exports = router;
