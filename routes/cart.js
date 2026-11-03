@@ -74,4 +74,26 @@ router.get('/subtotal/:userId', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// Sprint 4: Update item quantity in shopping cart
+router.put('/item', async (req, res) => {
+    try {
+        const { cartId, bookId, quantity } = req.body;
+        if (!cartId || !bookId || quantity === undefined || quantity <= 0) {
+            return res.status(400).json({ error: 'Valid cartId, bookId, and quantity (> 0) are required' });
+        }
+
+        const [result] = await db.query(
+            'UPDATE cart_item SET quantity = ? WHERE cart_id = ? AND book_id = ?',
+            [quantity, cartId, bookId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Item not found in cart' });
+        }
+
+        res.status(200).json({ message: 'Cart item quantity updated successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 module.exports = router;
