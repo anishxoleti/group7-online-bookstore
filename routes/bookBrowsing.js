@@ -61,4 +61,35 @@ router.get('/books/rating/:rating', async (req, res) => {
   }
 });
 
+// PATCH /api/books/discount
+router.patch('/books/discount', async (req, res) => {
+  const { publisher, discountPercent } = req.body;
+  const percent = Number(discountPercent);
+
+  if (!publisher || Number.isNaN(percent) || percent <= 0 || percent > 100) {
+    return res.status(400).json({
+      error: 'publisher and a discountPercent from 1 to 100 are required'
+    });
+  }
+
+  try {
+    const [result] = await db.query(
+      `UPDATE book b
+       JOIN publisher p ON p.publisher_id = b.publisher_id
+       SET b.price = ROUND(b.price * (1 - ? / 100), 2)
+       WHERE p.name = ?`,
+      [percent, publisher]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'No books found for that publisher' });
+    }
+
+    return res.sendStatus(204);
+  } catch (error) {
+    console.error('Failed to apply discount:', error);
+    return res.status(500).json({ error: 'Unable to apply discount' });
+  }
+});
+
 module.exports = router;
